@@ -1,0 +1,31 @@
+%!TEX root = main.tex
+
+\begin{algorithm}
+Initialization $Q_I(t, h, a) \leftarrow 0, Q_C(t, h, a) \leftarrow 0, \coordination(t, h) \leftarrow 0$\;
+\For{each episode $e = 1, \cdots, E$}{
+    \For{each time step $t = 1, \cdots, T$}{
+        \For{each driver $i = 1, \cdots, n$}{
+            Generate two random numbers $\eta_0, \eta_1 \in [0,1]$\;
+            \uIf{$\eta_0 \leq \epsilon$}{
+                Choose exploratory action\;
+            }
+            \Else{
+                \uIf{$\eta_1 \leq \coordination(t, h_i)$}{
+                $a$ = Independent action $a^*$ from $Q_I$\;}
+                \Else{
+                $a$ = Coordinated action $a^c$ from $Q_C$\;
+            }
+            }
+            Receive reward $E(t, h_i, a)$\;
+            Compute rebalance matrix $\bf Z$\;
+        }
+    }
+    \For{each zone $h \in \hexbins$}{
+        $\forall t, a$ update $Q_I(t, h, a)$ \;
+        $\forall t$ update degree of coordination $\coordination(t, h)$ \;
+        $\forall t, a$ update $Q_C(t, h, a)$ \;
+    }
+}
+\caption{General learning approach}
+\label{alg:general_learning}
+\end{algorithm}

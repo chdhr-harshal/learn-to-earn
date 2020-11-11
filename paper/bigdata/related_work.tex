@@ -1,0 +1,91 @@
+%!TEX root = main.tex
+\section{Related Work}
+\label{sec:related_work}
+
+In this section, we discuss existing work in comparison to ours.
+
+\spara{Driver recommender systems:}
+The problem of spatio-temporal demand prediction 
+    to inform an idle taxi driver of favorable locations for passenger
+    pickups had been studied extensively even before the advent of ride-hailing
+    services. 
+These works focus on the case of a self-interested individual acting in isolation.
+For instance, Li et al.~\cite{Li2011-qm} use a
+    large-scale taxi GPS trace dataset to identify salient features associated
+    with successful passenger pickup locations, while in two separate studies, 
+    Yuan et al.~\cite{Yuan2011-pd, Yuan2013-gj} develop a recommender
+    system to guide both idle taxi drivers and waiting passengers to convenient
+    locations in order to optimize social welfare.
+More recently, Chaudhari et al.~\cite{Chaudhari2018-cv} devise driver-oriented strategies to
+    recommend favorable driving schedules and pickup locations
+    to optimize the earnings of an individual on-demand ride-sharing driver.
+In contrast to our approach, the recommender systems in these works 
+    are agnostic to driver interactions
+    and may result in unfavorable supply excesses in certain locations
+    when adopted by many drivers simultaneously.
+
+\spara{Capacity repositioning systems:}
+Traditional works in driver dispatch systems~\cite{Lee2004-hh, Zhang2016-vz,
+    Seow2010-qg} typically rely on queuing-theoretical models to asymptotically
+    optimize supply-demand matching while reducing congestion-related issues.
+Aided by the precise estimates of supply and
+    demand in real-time, recent approaches~\cite{Xu2018-xb, Zhang2017-id} 
+    leverage
+    demand volume and ride destination forecasting models to use in
+    combinatorial optimization techniques.
+These approaches do not scale well to use cases on contemporary platforms,
+    where fleets of as many as 10,000 drivers serve a single city. 
+
+    
+More recent work~\cite{Mnih2013-sj,Tang2019-xu,
+    Lin2018-vs, Wen2017-vp, Wang2018-bv} 
+    addresses the scalability issue by using deep reinforcement learning to learn 
+    control policies in high-dimensional input space. 
+While effective in this high-volume data domain, these methods rely on
+    external proprietary models to generate inputs for the driver dispatch
+    systems.
+For example, the approach of ~\cite{Lin2018-vs} heavily relies on 
+    a proprietary simulator built by Didi Chuxing in order to generate inputs 
+    required during model training, making it impossible 
+    to reproduce their results for comparison purposes.
+To the best of our knowledge, building such a simulator is itself an 
+   active research problem.
+Moreover, deep-learning based techniques suffer from a lack of
+    explainability.
+Cognizant of these issues, our approach does not rely on any proprietary models 
+    but rather learns high-quality solutions \emph{from scratch} based solely 
+    upon historically observed data.
+Moreover, we achieve that without sacrificing the explainability of the
+    model.
+In the absence of the need for coordination, our model assumes homogeneity of 
+    drivers in the same location and provides
+    \emph{envy-free} recommendations while also making it scalable. 
+Furthermore, we have publicly made available our entire codebase and
+    the reinforcement learning environment required to reproduce every result 
+    presented in this work, thus 
+    enabling future comparative studies~\cite{github-page}.
+
+From the learning point of view, our approach not only learns \emph{how} to coordinate 
+    but also \emph{when} it is required to do so. 
+This is achieved by augmenting  vanilla reinforcement 
+    learning (in the form of tabular Q-learning) with
+    combinatorial techniques to aid the rebalancing of driver
+    distribution.
+
+\spara{Platform economics:}
+Studies of ride-hailing services as multi-sided economic marketplaces have 
+    investigated the impacts of the platform's pricing policies on the platform profits, 
+    the consumer surplus, and the driver
+    wages~\cite{Castillo2018-he, Bimpikis2016-yf, Besbes2019-ds, Ma2018-hb}.
+S{\"u}hr et al.~\cite{Tom_Suhr-ps} investigate fairness in driver earnings 
+    distribution using driver-passenger matchings optimized to attain 
+    income equality goals.
+Recently, Chen et al.~\cite{Chen2019-li} combines platform economics with the capacity
+    repositioning problem using a contextual bandit framework. 
+There is a growing body of literature studying the interplay between platform
+    pricing and strategic driver behaviors, for which we refer the readers to
+    ~\cite{Yan2018-wq}.
+Our work contributes to this domain by 
+    developing a scalable framework that can be used to verify the results of
+    asymptotic dynamic pricing models via realistic simulations.
+

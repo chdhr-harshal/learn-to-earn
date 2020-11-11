@@ -1,0 +1,48 @@
+%%%%% NEW MATH DEFINITIONS %%%%%
+
+\usepackage{amsmath,amsfonts,bm}
+
+% Macros
+\newcommand{\hexbins}{{{\ensuremath{\mathcal{H}}}}}
+\newcommand{\timesteps}{{{\ensuremath{\mathcal{T}}}}}
+
+\newcommand{\relocatingdrivers}{{{\ensuremath{\mathcal{R}}}}}
+\newcommand{\waitingdrivers}{{{\ensuremath{\mathcal{W}}}}}
+
+\newcommand{\demandmatrix}{{{\ensuremath{\mathbf{D}}}}}
+\newcommand{\traveltimematrix}{{{\ensuremath{\mathbf{T}}}}}
+\newcommand{\rewardmatrix}{{{\ensuremath{\mathbf{R}}}}}
+\newcommand{\actionmatrix}{{{\ensuremath{\mathbf{A}}}}}
+\newcommand{\imbalancematrix}{{{\ensuremath{\Delta}}}}
+\newcommand{\rebalancematrix}{{{\ensuremath{\mathbf{Z}}}}}
+\newcommand{\flowvector}{{{\ensuremath{\bm{f}}}}}
+\newcommand{\policy}{{{\ensuremath{\pi}}}}
+\newcommand{\coordination}{{{\ensuremath{\xi}}}}
+\newcommand{\rebalancinggraph}{{{\ensuremath{\mathcal{G}}}}}
+\newcommand{\imbalancethreshold}{{{\ensuremath{\Lambda}}}}
+
+% Operators
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\Tr}{Tr}
+\let\ab\allowbreak
+
+%formating
+\newcommand{\spara}[1]{\smallskip\noindent{\bf{#1}}}
+\newcommand{\mpara}[1]{\medskip\noindent{\bf{#1}}}
+\newcommand{\bpara}[1]{\bigskip\noindent{\bf{#1}}}
+
+\newcommand{\squishlist}{\begin{list}{$\bullet$}
+    {
+    \setlength{\itemsep}{0pt}
+    \setlength{\parsep}{3pt}
+    \setlength{\topsep}{3pt}
+    \setlength{\partopsep}{0pt}
+    \setlength{\leftmargin}{1.5em}
+    \setlength{\labelwidth}{1em}
+    \setlength{\labelsep}{0.5em}
+    }
+}
+
+\newcommand{\squishend}{\end{list}}

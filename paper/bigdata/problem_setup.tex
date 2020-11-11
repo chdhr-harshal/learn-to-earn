@@ -1,0 +1,177 @@
+%!TEX root = main.tex
+\section{Problem Setup}
+\label{sec:problem_setup}
+In this section, we describe the basics of our problem setup and provide 
+the necessary notation.
+
+\subsection{City attributes}
+
+Throughout the paper, we assume that the city is divided into a set of 
+    $m$ non-overlapping hexagonal zones denoted by ${\hexbins}$. 
+We also assume that time $t$ advances in discrete time steps i.e., 
+    $\timesteps = \{1, \cdots, T\}$, a standard industry practice~\cite{Chen2019-ko}.
+Finally, we assume a total of $n$ homogeneous drivers
+    traveling between hexagon zones picking up and dropping off the passengers.
+
+Our model uses the following city matrices and vectors that are time-varying; 
+    i.e.,  their entries change at every time step. However, for notational 
+    convenience, we do not introduce the time step $t$ subscript unless 
+    required for context. 
+
+\mpara{Demand matrix ({\demandmatrix}):}
+A matrix $\demandmatrix \in \mathbb{R}^{m \times m}$ such that each entry
+    $d(h, h')$ denotes the number of passengers requesting a ride from zone $h$ to
+    zone $h'$ at time $t$. 
+With appropriately sized hexagonal city zones, we find that
+    $\forall h \in {\hexbins}, d(h, h)=0$.
+
+\mpara{Travel time matrix ({\traveltimematrix}):}
+A matrix $\traveltimematrix \in \mathbb{R}^{m \times m}$ such that each entry
+    $\tau(h, h')$ denotes the number of discrete time steps required for transiting 
+    from zone $h$ to zone $h'$. 
+
+\mpara{Reward matrix ({\rewardmatrix}):}
+A matrix $\rewardmatrix \in \mathbb{R}^{m \times m}$ such that each entry 
+    $r(h,h')$ denotes the net reward for a taxi driver carrying a passenger 
+    from zone $h$ to zone $h'$. 
+The net rewards include driver's earnings for delivering the
+    passenger at the destination minus the sundries such as gas cost, vehicle
+    depreciation, etc. 
+Hence, each entry of the matrix is of form $r(h, h') = \textrm{earnings}(h, h')
+- \textrm{cost}(h, h')$.
+
+\mpara{Driver actions ({\actionmatrix}):}
+At each time step $t$, a driver in zone $h$ who is not currently on a
+trip can choose one of the two actions.
+\squishlist
+    \item \textbf{Wait:} A wait action $a(h,h)$ involves waiting for a
+            passenger in the current zone $i$ for the current time step. 
+            If successful, it can lead to a trip to some other zone $h'$
+            with the driver earning a reward of $r(h, h')$.  
+        When the number of
+            drivers choosing to wait in a zone exceeds the demand of the zone at
+            the particular time, an unsuccessful wait may occur, and the driver earns
+            a net reward of zero while staying in the same zone $h$ for the next time
+            step.
+    \item \textbf{Relocate:} A relocate action $a(h,h')$ involves
+            relocation {\em without a passenger} from zone $h$ to zone $h'$. 
+        Undertaking a relocate action costs a driver a value denoted 
+            by $\textrm{cost}(h, h')$.
+\squishend
+Thus, we consider a total of $|\actionmatrix| = m^2$ actions.  
+In case of a relocate action or a successful passenger pickup to zone $h'$, 
+    the driver is busy traveling for next $\tau(h, h')$ time steps and is 
+    presented with the next action choice at time $t + \tau(h, h')$, 
+    while in case of an unsuccessful wait, the driver chooses the next action 
+    at time $t + 1$.
+
+\subsection{Model attributes}
+
+Using the city attributes from the previous section, we now define the
+    attributes of our model:
+
+\mpara{Policy ({\policy}):}
+A policy function $\policy : \hexbins \times \timesteps \rightarrow \actionmatrix$ 
+    recommends the best action to drivers in every zone of the city at each time step,
+    to maximize the model's objective function.  
+We impose a constraint that all drivers in the same zone at the same time be 
+    recommended the same action unless driver coordination is required to 
+    resolve a supply-demand imbalance in the zone.  
+
+A driver $i$ following a policy $\policy$ performs location 
+    and time-dependent actions represented by a 3-tuple 
+    $\phi^{\policy}_t(i) = (t, h, a)$, where $h$ and $a$ are the location of the driver
+    and the action chosen at time $t$ respectively.
+We assume that if a driver is busy at time $t$, the corresponding 3-tuple 
+    is $(t, \varnothing,\varnothing)$.
+
+\spara{Driver earnings ($\mathcal{E}$):}
+Let function $E(t, h, a)$ denote the net earnings of a driver 
+    on taking action $a$ at time $t$ while located in zone $h$. 
+If the action leads a driver to zone $h'$, $E(t, h, a) = r(h, h')$. 
+In the case of the relocate action, net earnings simply constitute the cost of 
+    relocation i.e., 
+    $r(h,h') = - \textrm{cost}(h, h')$.
+We can denote the gross earnings of $n$ drivers following a policy $\pi$ by:
+    $\mathcal{E}^{\policy}(n, \demandmatrix, \traveltimematrix, \rewardmatrix) =
+    \sum_{t=1}^{T} \sum_{i=1}^{n}  E\big(\phi^
+    {\policy}_t(i)\big)$,
+    where $E(t, \varnothing, \varnothing) = 0$. 
+
+\spara{Supply ($S$):}
+A policy $\pi$ induces the movement of drivers between different city zones
+    through action choices. 
+The supply, i.e., the number of drivers at zone $h$ at time
+    $t$ induced by a policy $\policy$, is denoted using the supply function
+    $S^{\policy}(t, h)$.  
+
+\spara{Demand fulfillment ($\mathcal{F}$):}
+A driver in zone $h$ choosing the wait action $a(h,h)$ at time $t$ is randomly
+    matched with any of the $\sum_{h'}d_t(h,h')$ passengers requesting a ride in zone
+    $h$ at the same time.
+Hence, a policy $\pi$, via its supply function, induces a demand fulfillment function. 
+Demand fulfilled in zone $h$ at time $t$ when drivers follow a policy
+    $\policy$ is denoted using the demand satisfaction function
+    $F^{\policy}(t, h)$. 
+Obviously, $\forall_{\policy \in \Pi}
+    F^{\policy}(t, h) \leq \sum_{h'} d_t(h, h')$. 
+Hence, total demand fulfilled over the course of time steps $t \in {\timesteps}$ 
+    by $n$ drivers following the policy $\policy$ can be given by:
+    $\mathcal{F}^{\policy}(n,\demandmatrix, \traveltimematrix, \rewardmatrix) =
+    \sum_{t=1}^{T} \sum_{h=1}^{m}  F ^{\policy}(t, h)$.
+
+\subsection{Problem statement}
+Based on the above definitions, we now formulate the problem that we 
+    solve.\\
+
+\noindent\textsc{Problem 1(MaxEarnings):} Given time-varying matrices $\demandmatrix,
+    \traveltimematrix, \rewardmatrix$ and the number of homogeneous drivers $n$,
+    devise a policy $\policy^*$ such that
+    \begin{equation}
+    \label{eq:max_earnings_problem}
+    \policy^* = \argmax_{\policy \in \Pi} \mathcal{E}^{\policy}(n,\demandmatrix,
+    \traveltimematrix, \rewardmatrix).
+    \end{equation}
+
+Replacing the driver earnings ($\mathcal{E}$) by demand fulfillment
+    ($\mathcal{F}$) in the Equation~\eqref{eq:max_earnings_problem} above
+    results in a variant of \textsc{MaxEarnings} problem, in which the goal is to
+    maximize fulfilled rides, referred to henceforth as
+    the \textsc{MaxFulfillment} problem.
+    
+
+\iffalse
+\subsection{Discussion}
+\label{sec:problem_setup_discussion}
+At a high level, our revenue maximization problem statement is similar to 
+   existing work in the area. 
+However, our modeling assumptions are significantly more realistic 
+   than previous work, making our methods more amenable to 
+   operational deployment.
+For example, whereas our work assigns drivers to rides explicitly
+   (and allocates rewards accordingly), previous work
+   performs reward allocations proportionally, in a fluid model.
+In our model, when two drivers compete for a single ride from $i$ to $j$, 
+   one of the two driver gets the ride, gets paid, and ends up in $j$
+   after a travel time $t$.
+In the representative fluid model of~\cite{Lin2018-vs}, 
+   both drivers get half of the payment, and two halves of
+   drivers (conceptually) transit to $j$ in a fixed time step, 
+   regardless of the distance traveled.
+Although a fluid model such as this is tractable to solve for and optimize
+   around, it has strong implications on the solution space, as it 
+   notably removes time-dependent and driver-dependent features from the model.
+Issues such as studying variance of driver earnings are not possible in these
+   models, as all drivers starting at the same time and place will end up with 
+   identical (quantized) trajectories and earnings.
+   
+
+We also note that in our framework, a wait action for an individual 
+    driver is only successful if the driver is present in the same zone as
+    the ride request. Hence, our framework cannot result into the 
+    \textit{Wild Goose Chase (WGC)} phenomenon described by
+    ~\cite{Castillo2018-he},
+    in which high demand causes depletion of idle drivers on the streets,
+    leading to suboptimal FCFS matches where drivers spend a significantly higher
+    duration of time en route to pick up passengers.
+\fi

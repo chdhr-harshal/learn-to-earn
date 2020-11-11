@@ -1,0 +1,111 @@
+%!TEX root = main.tex
+\section{Introduction}
+\label{sec:introduction}
+
+Popular ride-hailing platforms, e.g., Uber, Lyft, Didi Chuxing, and Ola, have
+    revolutionized the daily commute in cities across the world.
+Globally valued at over \$61 billion and expected to grow to over \$200 billion by 2025
+%% 218 - too specific
+    these platforms operate as multi-sided marketplaces, seamlessly connecting drivers
+    with riders through their smartphone applications~\cite{noauthor_undated-gj}.
+The explosive growth of these ride-hailing platforms has motivated a wide array of 
+    questions for academic research at the intersection of computer science 
+    and economics, as we discuss in the related work section.
+
+A large segment of these works aims to improve the performance of the platforms, 
+    ensuring high-reliability service for the passengers alongside high utilization 
+    and earnings for the drivers. 
+The two main thrusts are \emph{dynamic pricing} and \emph{capacity repositioning}. 
+Dynamic pricing
+    ~\cite{Yan2018-wq, Besbes2019-ds, Banerjee2015-jx, Castillo2018-he, Garg2019-vs} 
+    aims to balance demand and supply by increasing prices in certain
+    neighborhoods. 
+Intuitively, temporary increases in prices curtail price-sensitive demand and assist the 
+    platform in ensuring a high-reliability service.
+On the flip side, the potential for higher earnings also encourages more drivers 
+    to join the platform during such ``price surges". 
+The dynamic pricing literature uses  game-theoretic analyses of the 
+    ride-hailing markets to show its 
+    effectiveness as a platform control mechanism. 
+
+The capacity repositioning approach aims to improve the platforms' performance
+    by assisting drivers with recommendations for relocations inside a city. 
+Although the initial work in this domain has focused on modeling the 
+    driver-repositioning problems as combinatorial optimization
+    problems~\cite{Lee2004-hh, Zhang2016-vz, Seow2010-qg,Xu2018-xb, Zhang2017-id}, 
+    the need for optimizing large driver fleets and the availability of 
+    high-dimensional historical data has recently led to the development of 
+    machine learning methods for the same problem~\cite{Mnih2013-sj,Tang2019-xu,
+    Lin2018-vs, Wen2017-vp, Wang2018-bv}. 
+Such approaches predominantly use multi-agent coordination reinforcement
+    learning to solve a global capacity repositioning problem, using various 
+    forms of \emph{attention mechanisms} in neural networks to achieve coordination.
+By design, they make a key 
+    assumption that there is \emph{always} a need for coordination in the market. 
+This assumption necessitates them to leverage recent breakthroughs
+    in the scalability of deep learning models to exploit the high-dimensional
+    historical data.
+Deep-learning based methods have a
+    large number of hyperparameters required in their training, making their 
+    performance susceptible to external perturbations.
+Moreover, the \emph{black-box} coordination issue, as yet unresolved, is a
+    potential liability when using deep-learning based systems in domains such
+    as this, where platform controllers would like to understand how the
+    choices of recommendations to human drivers were made.
+
+We aim to revise the capacity-repositioning approach by relaxing the assumption 
+    that coordination is always necessary.  
+Specifically, our approach leverages the
+    observation that driver actions are independent
+    at most times of the day, with coordination required only during periodic
+    times of peak demand, such as rush hours. 
+Furthermore, the instances of supply-demand imbalances in a city are usually 
+    restricted to distinct neighborhoods.
+We exploit this loose spatio-temporal coupling of supply and demand to
+    learn \emph{when} and \emph{where} the drivers need to coordinate, and 
+    otherwise act independently for the rest of the time.
+This observation allows us to combine vanilla reinforcement learning 
+    (i.e., not deep learning) algorithms with simple combinatorial techniques 
+    for solving the repositioning problem.
+Moreover, our framework is scalable because the 
+    sizes of the combinatorial problems we need to solve in order to 
+    achieve capacity repositioning are constrained by the number of 
+    imbalanced neighborhoods.
+Broadly, our model is a combination of the 
+    combinatorial and machine-learning approaches to capacity repositioning.
+
+
+As our framework does not rely on deep learning, we are able to explain 
+    \emph{ex-post} all the recommendations given to
+    the drivers, taking a step in direction of \emph{transparent} AI
+%% JB not:  A.I.
+   proposed
+    in the recent \emph{General Data Protection Regulations} (GDPR)
+    guidelines~\cite{Vincent2019-eg}.
+Moreover, our approach is \emph{envy-free} in the sense that drivers at the same 
+    location and time do not envy one another's future earnings.
+The resulting model is relatively parameter-free and hence generalizes well in
+    presence of daily variations in supply and demand.
+Finally, our framework is amenable to 
+    integration with any dynamic-pricing models by easily augmenting our data
+    with the effects of such a model.
+
+\spara{Contributions:} To summarize, the contributions of our paper are the following:
+\squishlist
+\item We consider the problem of capacity relocation on a 
+        ride-hailing platform in order to maximize welfare and propose a robust, 
+        explainable, and scalable framework that combines simple combinatorial techniques
+        with vanilla reinforcement learning algorithms.
+\item We perform a thorough experimental evaluation of the dynamics of
+        the fleet-management system, its effectiveness, robustness to imperfect
+        hyperparameter tunings, and 
+        generalizability in the presence of external perturbations.
+\item We also make available an OpenAI gym environment\footnote{OpenAI
+        Gym is a toolkit for developing and comparing reinforcement learning
+        algorithms~\cite{open-ai-gym}.}
+        named \texttt{nyc-yellow-taxi-v0} at \cite{github-page} so that any 
+        future multiagent reinforcement learning 
+        algorithm can be easily applied to this problem.
+    To the best of our knowledge, this is the first environment based on 
+        real-world datasets.
+\squishend

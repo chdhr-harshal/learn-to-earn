@@ -1,0 +1,404 @@
+%!TEX root = main.tex
+
+\section{Learning Framework}
+\label{sec:approach}
+In this section, we describe our approach for solving the \textsc{MaxEarnings} 
+    problem.
+Our method is a \emph{model-based reinforcement learning} approach, and its 
+    description is provided in Algorithm~\ref{alg:general_learning}. 
+ 
+As with any reinforcement learning approach, we train our model by
+    allowing the drivers to repeatedly interact with an environment 
+    in form of the city's ride demand data from a representative day.
+Each interaction, which is $T$ timesteps long, constitutes an \emph{episode}
+    of the training process.
+Each episode constitutes of 3 phases described below.
+
+\input{algorithm}
+
+\spara{Exploratory phase (lines 5-7): }
+During this phase of the algorithm, drivers exhibit an
+    \emph{exploratory behavior} by choosing a pseudo-random action 
+    with a probability $\epsilon$.
+These randomly chosen actions allow the model to explore a larger portion of
+    the policy space, preventing its policy from converging to a local
+    minimum.
+This is similar to the $\epsilon$-greedy behavior of
+    Q-learning~\cite{Sutton1998-wd}.
+
+\spara{Exploitative phase (lines 9-12): }
+During this phase of the algorithm, the rest of the drivers
+    exhibit an \emph{exploitative behavior} using the policy learned up until 
+    the previous episode of training.
+The policy recommends exploitative actions to individual drivers based upon 
+    the time of the day and their locations, independently of each other,
+    henceforth referred to as \emph{independent actions}.
+However, certain recommended actions may result in supply-demand imbalances
+    when a large number of drivers relocate to the same city zone with an
+    insufficient demand, or too few of them relocate to a zone with excess 
+    demand.
+We postulate that explicit coordination is essential to prevent such
+    supply-demand imbalances from occurring.
+Hence, we introduce the \emph{degree of coordination ({\coordination})} - a 
+    probabilistic value that signifies the extent to which drivers located in 
+    the same city zone need to coordinate their actions.
+Whenever a zone has a positive degree of coordination, the exploitative actions
+    recommended to a {\coordination} fraction of drivers in the zone are derived
+    from solving a reward-maximizing linear program, henceforth referred to as
+    \emph{coordinated actions}.
+
+It should be noted that it is the explicit criterion for recommending a 
+    coordinated action that sets our
+    approach apart from recent works in the field of deep reinforcement
+    learning across different applications and domains.
+
+\spara{Learning phase (lines 15-18): }
+Actions recommended in the exploratory and exploitative phases of
+    the episode result in drivers picking up passengers or relocating themselves
+    to different city zones, thereby observing rewards of their actions (line 13).
+The learning phase of the algorithm computes a rebalancing matrix (line 14) to use
+    in conjunction with the observed rewards to further improve upon the
+    policy.
+
+Having developed an intuition for the major building blocks of
+    Algorithm~\ref{alg:general_learning}, we now explain these phases in 
+    greater detail. 
+
+\subsection{Exploratory phase}
+Over the course of training, when a driver located in 
+    zone $h$ chooses to explore, we model the probability of driver's 
+    exploratory ride distance using a Gaussian function with a random variable 
+    $K_{\geq 0}$. 
+Specifically, the probability that a driver relocates to a zone at distance 
+    $k \geq 0$ is given by:
+    $Pr[K = k] = be^{-\frac{k^2}{2c^2}}$.
+
+After sampling an exploration distance $k$, the driver chooses the actual 
+    destination by sampling uniformly at random from all zones at 
+    distance $k$. 
+When $k=0$, the driver chooses to wait in the current zone, while for $k >0$, 
+    the driver chooses a relocate action. 
+The experiments in this paper were all conducted using $b=0.7$ and
+    $c=1$ (chosen via grid-search), allowing explorations up to 3 hexagonal zones away.
+In contrast,~\cite{Lin2018-vs} restricts drivers to single zone distance
+    relocations, reducing their ability to learn policies that mitigate 
+    supply-demand imbalances by relocating supply from zones further away in a
+    single timestep.
+% Given a sufficient number of training episodes, the framework is not
+%     sensitive to the value of these parameters as they primarily affect the speed of
+%     learning by controlling exploration distance. 
+Over the course of training, $\epsilon$ is annealed exponentially from
+    1 to 0, thereby outputting an entirely exploitative model at the end of
+    the training.
+
+\subsection{Exploitative phase}
+Exploitative behavior is manifested in the form of independent
+    actions (line 10) and coordinated actions (line 12) when the degree of
+    coordination is positive.
+We detail these next.
+
+\subsubsection{Choice of independent action}
+For each independent action chosen by a driver, we record the  
+    reward earned. 
+This reward is then used to update the \emph{value} of the action for the 
+    next episode, based on the learning rate ($\alpha$) and the
+    discount factor ($\gamma$). 
+These values are stored in a Q-table denoted by 
+    $Q_I \in \mathbb{R}^{T \times m \times |\textbf{A}|}$.
+For each zone $h$, at time $t$, the best independent action ($a^*$) 
+ is chosen by (line 10, Algorithm~\ref{alg:general_learning})
+    \begin{equation*}
+        a^*(t, h) = \argmax_{a \in \actionmatrix_h}Q_I(t, h, a), 
+    \end{equation*}
+    where $\actionmatrix_h$ refers to the $h$-th row of {\actionmatrix}.
+
+\subsubsection{Independent learning}
+Based upon the observations of drivers undertaking independent actions (both
+    exploratory and exploitative), we
+    update the independent learning matrix ($Q_I$) as
+    described below.
+
+% \spara{Updating $Q_I$ for wait actions:}
+% Let $\waitingdrivers$ denote the set of drivers choosing wait action at time $t$
+%     while located in zone $h$. 
+% A successful wait may lead a driver $i \in \waitingdrivers$ to destination $h'$
+%     with net earnings $E\big(t, h, a(h, h)\big) = r(h, h')$ and a travel time 
+%     of $\tau(h, h')$. 
+% An unsuccessful wait will force the driver to stay in zone $h$ with net earnings
+%     $E\big(t, h, a(h, h)\big) = 0$ and travel time $\tau(h,h) = 1$.
+% The utility of the wait action is therefore
+%     \begin{equation*}
+%         \mathcal{U}_{(t, h,h)} = \sum_{i \in \waitingdrivers} \bigg[E\big(t, h_i,
+%             a(h_i,h_i)\big) + \gamma \times
+%         Q_I(t'_i, h'_i, a^*(t'_i, h'_i))\bigg],
+%     \end{equation*}
+%     where $t'_i = t_i + \tau(h_i, h'_i)$ and we discount the future rewards with 
+%     a factor $\gamma$.
+% We use the utility of the wait action to update the entry $Q_I(t, h, h)$ as follows: 
+%     \begin{equation}
+%     \label{eq:Q_I_update_wait}
+%         Q_I(t, h, h) \leftarrow (1 - \alpha)Q_I(t, h, h) +
+%         \frac{\alpha}{|\waitingdrivers|}\mathcal{U}_{(t, h,h)}.
+%     \end{equation}
+% Normalizing the update term by the number of drivers choosing the wait action 
+%     captures the average utility of the wait action.
+% The term $Q_I(t, h, h)$ on the right hand side of the equation denotes the 
+%     values learned upto the previous episode of the training.
+
+\spara{Updating $Q_I$ for wait actions:}
+Let $\waitingdrivers_{(h, h')}$ denote the number of drivers choosing to wait
+    in zone $h$ at time $t$, and ending up in zone $h'$. 
+A successful wait generates net earnings $E\big(t, h, a(h, h)\big) = r(h, h')$ 
+    and consumes a travel time $\tau(h, h')$, while 
+    an unsuccessful wait i.e., $h' = h$, generates zero net earnings
+    and consumes one timestep.
+The utility of the wait action is therefore
+    \begin{equation*}
+        \mathcal{U}_{(t, h,h)} = \sum_{h'} 
+        \waitingdrivers_{(h, h')}
+        \bigg[E\big(t, h,
+            a(h,h)\big) + \gamma 
+    Q_I(t', h', a^*(t', h'))\bigg]
+    \end{equation*}
+%%  JB -- removed trailing comma -- in other column
+    where $t' = t + \tau(h, h')$ and we discount the future rewards with 
+    a factor $\gamma$.
+We use the utility of the wait action to update the entry $Q_I(t, h, h)$ as follows: 
+    \begin{equation}
+    \label{eq:Q_I_update_wait}
+        Q_I(t, h, h) \leftarrow (1 - \alpha)Q_I(t, h, h) +
+        \frac{\alpha}{\sum_{h'}\waitingdrivers_{(h, h')}}\mathcal{U}_{(t, h,h)}.
+    \end{equation}
+Normalizing the update term by the number of drivers choosing the wait action 
+    captures the average utility of the wait action.
+The term $Q_I(t, h, h)$ on the right hand side of the equation denotes the 
+    values learned upto the previous episode of the training, and $\alpha$ is 
+    the learning rate.
+
+\spara{Updating $Q_I$ for relocate actions:}
+Let $\relocatingdrivers_{(h, h')}$ denote the number of drivers relocating from zone $h$
+    to zone $h'$. The utility of such relocation is given by
+    \begin{equation*}
+        \mathcal{U}_{(t,h,h')} = \relocatingdrivers_{(h, h')} \bigg[E(t, h,
+            a(h, h')) + \gamma
+        Q_I(t', h', a^*(t', h'))\bigg],
+    \end{equation*}
+    where $t' = t + \tau(h, h')$. 
+We use the utility of the relocate actions to update the entry $Q_I(t, h, h')$
+    of the independent table as follows: 
+    \begin{equation}
+    \label{eq:Q_I_update_relocate}
+        Q_I(t, h, h') \leftarrow (1 - \alpha)Q_I(t, h, h') 
+        + \frac{\alpha}{\relocatingdrivers_{(h, h')}}\mathcal{U}_{(t, h,h')}.
+    \end{equation}
+Using Equations~\eqref{eq:Q_I_update_wait} and ~\eqref{eq:Q_I_update_relocate}, the
+    $Q_I$ matrix is updated in line 16 of Algorithm~\ref{alg:general_learning} 
+    using the evidence obtained via simulations in form of 
+    utilities $\mathcal{U}_{(t, h, h')}$ of both the wait and relocate actions.
+
+\subsubsection{Choice of coordinated action}
+The choice of coordinated action is more intricate and non-standard, and we 
+    next explain it in detail.
+To guide the coordinated behavior of drivers in line 12 of
+    Algorithm~\ref{alg:general_learning}, we solve a reward-maximizing
+    rebalancing operation between city zones experiencing supply-demand
+    imbalances. 
+There are two principal components driving the coordinated behavior: 
+\emph{degree of coordination} ({\coordination}) which controls the need of 
+    coordination in a particular zone at a time, and \emph{coordinated learning
+    matrix} ($Q_C$) which determines the choice of action as a response to the 
+    need of coordination.
+Thus, each coordinated action is associated with a probability for it to participate in
+    the rebalancing operation that is stored in the matrix $Q_C$. 
+Note that $Q_C$ contains learned probabilities, as against the usual 
+    action-value nature of $Q_I$. 
+
+Let the policy learned at the end of $k$-th episode during training be denoted
+    by ${\policy}_k$. 
+Following this policy induces a driver supply $S^{\policy_k}$ during 
+    the $(k+1)$-th episode of training. 
+For each zone $h$, at time $t$, the coordinated action ($a^c$) in line 12 of 
+    Algorithm~\ref{alg:general_learning} is obtained by uniformly sampling 
+    from the probability vector $Q_C(t, h)$.
+
+\spara{Imbalance matrix (\imbalancematrix):}
+A matrix ${\imbalancematrix} \in \relocatingdrivers^{|\timesteps| \times
+    m}$ such that each entry $\delta(t,h)$ denotes the supply-demand imbalance
+    experienced at zone $h$ at time $t$ during the $(k+1)$-th episode. 
+Specifically, each entry of the imbalance matrix can be given by, $\delta(t, h) =
+    S^{\policy_k}(t, h) - \sum_{h'} d_t(h, h')$.
+We mask the imbalance matrix using an imbalance threshold parameter 
+    {\imbalancethreshold} such that,
+    \begin{equation*}
+        \delta(t,h) = 
+            \begin{cases}
+            \delta(t, h) &\text{ if } \big|\delta(t, h)\big|
+            \geq \imbalancethreshold \\
+            0 &\text{ otherwise. }
+        \end{cases}
+    \end{equation*}
+Using this parameter allows us to control the level of imbalances that the
+    framework should attempt to mitigate. 
+
+\spara{Rebalancing graph (\rebalancinggraph):}
+Based upon the supply-demand imbalance matrix induced at the end of an
+    episode, we create the \emph{rebalancing graph}
+    $\rebalancinggraph = (V,E)$ consisting of
+    imbalanced zones as nodes and edges as corresponding relocation actions between
+    them. %in order to mitigate those imbalances.
+This is a bipartitle graph with nodes 
+%% JB: set -- redundant
+$V = \big\{V_+ \cup V_-\big\}$ where $V_+$ is the set
+    of nodes with excess supply, i.e., $\delta(t,h) > 0$ and $V_-$ is the
+    set of nodes with supply deficit, i.e., $\delta(t, h) < 0$.
+Thus each node $v_i \in V$ in the rebalancing graph is associated with 
+    three attribues: \textit{imbalanced zone} $(v_i^h)$, \textit{time of
+    imbalance} $(v_i^t)$ and \textit{magnitude of imbalance} $\big(\delta(v_i^t, v_i^h)\big)$.
+The edge set $E$ consists of directed edges from the nodes in $V_+$ 
+    to nodes in $V_-$ and they model feasible relocations. 
+Thus:
+    $E = \big\{ e_{ij}: v_i \in V_+, v_j \in V_-, v_i^t + \tau(v_i^h,v_j^h) \leq v_j^t\big\}$.
+% The travel-time constraint limits the edges to ones from
+%     supply excess nodes to supply deficit nodes such that a relocating driver
+%     from the excess node will be able to reach the deficit node in time to mitigate
+%     the deficit. 
+The travel time constraint filters out edges where a relocating driver from
+    an excess supply node cannot reach the deficit node in time.
+Each edge $e_{ij}$ is associated with utility:
+    \begin{equation*}
+        \mathcal{U}_{(i,j)} = \underbrace{Q_I(v_j^t, v_j^h ,v_j^h )}_\text{wait
+        action at $v_j^h$} - \underbrace{\textrm{cost}(v_i^h,v_j^h)}_\text{relocation cost} -
+    \underbrace{Q_I(v_i^t, v_i^h, v_i^h).}_\text{wait action at $v_i^h$}
+    \end{equation*}
+Thus, the utility of an edge measures the net value for a driver relocating along it
+    during coordinated behavior.
+
+\spara{Rebalancing operation:}
+Given a rebalancing graph {\rebalancinggraph}, we wish to relocate drivers from
+    supply excess zones to supply deficit zones.  
+We aim to find a matching that maximizes the net reward of all relocations, 
+    in order to maximize the driver earnings.  
+Such a rebalancing operation can be achieved by solving a
+    \emph{Minimum Cost Flow} problem expressed in the form of the linear program below.
+    \begin{eqnarray*}
+        \text{maximize } &\sum_{e_{ij} \in E} f_{ij} \times \mathcal{U}_{(i,j)} \nonumber \\
+        \text{s.t., }& \nonumber\\
+        \forall e_{ij} \in E, &f_{ij} \geq 0 \nonumber\\
+        \forall v_i \in V_+, &\sum_{v_j \in V_-} f_{ij} \leq \delta(v_i^t, v_i^h)
+        \nonumber\\
+        \forall v_j \in V_-, &\sum_{v_i \in V_+} f_{ij} \leq |\delta(v_j^t, v_j^h)|
+    \end{eqnarray*}
+\noindent Here, we calculate the number of
+    excess drivers who should relocate from an excess node to a deficit node and store
+    it in the form of a flow vector $f \in \relocatingdrivers^{|E|}$ indexed along the
+    edges set such that $f_{ij}$ denote the flow from $v_i$ to $v_j$. 
+
+If the platform aims to maximize demand fulfillment, we can formulate it
+    as a \emph{Maximum Flow} problem
+by setting the utility associated with each edge 
+    $\mathcal{U}_{(i,j)}=1$.
+
+As the constraint matrices -- in both problems -- are unimodal, the solutions 
+    of the linear programs are integral flow vectors and are thus optimal. 
+Note that the size of the constraint matrix increases with a decrease in 
+    the {\imbalancethreshold} parameter. 
+However, we can greatly reduce the sizes of corresponding linear programs and 
+    hence the computation time by solving a set of smaller linear programs; 
+    one for each connected component of the rebalancing graph.
+
+\subsubsection{Coordinated learning}
+Based upon the computed imbalance matrix ({\imbalancematrix}) and the solution
+    to the rebalancing operation above, we are now in a position to
+    update the coordinated learning matrix ($Q_C$) and the degrees of coordination
+    ({\coordination}) as described below.
+It should be noted that while the choice of coordinated action from the matrix 
+    $Q_C$ is
+    influenced by the reward-maximizing rebalancing described above, the degree
+    of coordination {\coordination} is merely influenced by the supply-demand
+    imbalances induced as a result of the policy learnt so far.
+
+\spara{Updating $Q_C$ for rebalancing operation:}
+We capture the rebalancing operation in form of a rebalance matrix 
+    $\rebalancematrix \in \mathbb{R}^{|\timesteps|
+    \times m \times m}$ where each entry $\zeta(t, h, h')$ denotes a probability of
+    a rebalancing relocation from zone $h$ to zone $h'$ being required at time $t$.
+For every edge $e_{ij} \in E$, we update {\rebalancematrix} as follows,
+    \begin{eqnarray*}
+        \zeta(v_i^t, v_i^h, v_i^h) &=& 
+            \frac{\delta(v_i^t, v_i^h) -\sum_{v_j \in V_-} f_{ij}}{\delta{v_i^t,
+            v_i^h}} \nonumber\\
+        \zeta(v_i^t, v_i^h, v_j^h) &=& \frac{f_{ij}}{\delta(v_i^t, v_i^h)}.
+    \end{eqnarray*}
+Using the rebalance matrix, we update $Q_C$ in line 18 of
+    Algorithm~\ref{alg:general_learning} as follows,
+    \begin{equation}
+    \label{eq:Q_C_update}
+        Q_C(t, h, h') \leftarrow (1 - \alpha)Q_C(t, h, h') + \alpha \zeta(t,
+        h, h').
+    \end{equation}
+
+\spara{Updating degree of coordination ({\coordination}):}
+At the end of each training episode $(k+1)$, we use the realized imbalance
+    matrix ({\imbalancematrix}) to determine the degree of coordination required 
+    within each zone at
+    every time step.  
+We update the degree of coordination as follows:
+    \begin{equation}
+    \label{eq:doc_update}
+        \coordination_{k+1}(t, h) = (1 - \alpha)\coordination_{k}(t, h) + \alpha\mu(t, h),
+    \end{equation}
+    where the rebalancing raio $\mu$ is computed as:
+    \begin{equation*}
+        \mu(t, h) = 
+        \begin{cases}
+        \frac{\delta(t,h)}{S^{\policy_k}(t, h)} &\text{if }
+            \delta(t,h) > 0. \\ 
+            \frac{\big|\delta(t, h)\big|}{\sum_{h'}d_t(h,h')} &\text{if }
+            \delta(t,h) < 0\text{ and } \coordination_{k}(t, h) > 0. 
+        \end{cases}
+    \end{equation*}
+While the former condition encourages driver relocations in zones with supply excess, 
+    the latter condition discourages it in zones with supply deficit.
+Thus, we use Equation~\eqref{eq:doc_update} to update the degree of coordination
+    for each zone in line 17 of Algorithm~\ref{alg:general_learning}.
+\iffalse
+\subsection{Discussion}
+
+We conclude this section by highlighting some of the features of our approach 
+    that make it appealing to use in practice. 
+
+First of all, over the course of training, our approach learns by trialing driver
+    actions over historically observed demand data and recommends 
+    strategic relocations to drivers when there is enough evidence to do so.
+This is done \emph{proactively}, i.e., with the goal of preventing such an
+    imbalance from actually occurring. 
+One should contradict this with other reinforcement
+    learning based approaches~\cite{Lin2018-vs, Li2019-bp} that try to resolve the
+    imbalance issues \emph{ex-post}, 
+    or dynamic pricing based approaches which assume full knowledge of future
+    demand~\cite{Ma2018-hb}.
+
+On deployment, our model relies only on trends learned from the 
+    historical data.
+This design decision is motivated by the empirically observed strong periodicity in demand.
+It makes our model relatively parameter-free, thereby providing robustness to
+    demand perturbations.
+This decision is validated by the model generalizability experiment in
+    Section~\ref{sec:model_generalizability}, where we show that the recommendations
+    made by our algorithm are robust to the presence of perturbations in the demand.
+In contrast, deep reinforcement learning based approaches~\cite{Mnih2013-sj,Tang2019-xu,Lin2018-vs, Wen2017-vp, 
+    Wang2018-bv} require as inputs full knowledge of supply and demand 
+    distribution during deployment. 
+The stochastic
+    gradient-descent algorithm used during training of networks uniformly
+    samples experiences observed under previous training policies, making it
+    impossible to reliably trace back and explain the actions recommended
+    to the drivers.
+Furthermore, this increases the sensitivity of model 
+    performance to the tuning of numerous hyperparameters, making them 
+    difficult to deploy in the real world.
+
+A key characteristic of our approach is the explicit coordination achieved
+    by solving a \emph{minimum cost flow} problem, allowing all our
+    recommendations to be easily traced back and explained.
+\fi
